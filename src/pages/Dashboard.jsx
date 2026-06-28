@@ -8,6 +8,35 @@ import Card, { CardHeader, CardContent } from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 
+const Sparkline = ({ data = [], color = '#4f46e5' }) => {
+  if (data.length === 0) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min === 0 ? 1 : max - min;
+  
+  const width = 80;
+  const height = 18;
+  
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * width;
+    const y = height - ((val - min) / range) * height;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <svg width={width} height={height} className="overflow-visible opacity-80 shrink-0">
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+    </svg>
+  );
+};
+
 export const Dashboard = () => {
   const { logInfo, logClick, logCrud, logError } = useLogger('Dashboard');
   const { success, error: toastError, warn } = useToast();
@@ -19,6 +48,13 @@ export const Dashboard = () => {
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [simulateApiError, setSimulateApiError] = useState(false);
   const [shouldCrash, setShouldCrash] = useState(false);
+
+  // Sparkline history buffers
+  const [selectedNode, setSelectedNode] = useState('US-EAST-Primary');
+  const [cpuHistory, setCpuHistory] = useState([42, 48, 45, 52, 49, 58, 55, 62, 59, 61]);
+  const [memHistory, setMemHistory] = useState([71, 73, 72, 74, 73, 76, 75, 77, 76, 78]);
+  const [loadHistory, setLoadHistory] = useState([205, 220, 195, 230, 215, 240, 235, 260, 240, 250]);
+  const [latencyHistory, setLatencyHistory] = useState([42, 48, 45, 49, 47, 50, 48, 51, 46, 52]);
 
   // Search/Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,14 +72,35 @@ export const Dashboard = () => {
     }
     try {
       const data = await apiService.getMetrics();
-      setMetrics(data);
+      // Apply scaling based on selected server node
+      const multipliers = {
+        'US-EAST-Primary': { cpu: 1.0, mem: 1.0, load: 1.0, latency: 1.0 },
+        'EU-WEST-Edge': { cpu: 0.8, mem: 0.9, load: 0.7, latency: 1.8 },
+        'AP-SOUTH-Replica': { cpu: 0.6, mem: 0.75, load: 0.5, latency: 2.2 }
+      };
+      const mult = multipliers[selectedNode] || multipliers['US-EAST-Primary'];
+      const adjustedData = {
+        ...data,
+        cpuUsage: Math.min(100, +(data.cpuUsage * mult.cpu).toFixed(1)),
+        memoryUsage: Math.min(100, +(data.memoryUsage * mult.mem).toFixed(1)),
+        requestsPerSecond: Math.floor(data.requestsPerSecond * mult.load),
+        latencyMs: Math.floor(data.latencyMs * mult.latency)
+      };
+
+      setMetrics(adjustedData);
+      
+      // Update histories
+      setCpuHistory((prev) => [...prev.slice(1), adjustedData.cpuUsage]);
+      setMemHistory((prev) => [...prev.slice(1), adjustedData.memoryUsage]);
+      setLoadHistory((prev) => [...prev.slice(1), adjustedData.requestsPerSecond]);
+      setLatencyHistory((prev) => [...prev.slice(1), adjustedData.latencyMs]);
     } catch (err) {
       logError('Failed to fetch telemetry metrics', err);
       toastError('Could not load telemetry metrics');
     } finally {
       setLoadingMetrics(false);
     }
-  }, [logError, toastError]);
+  }, [selectedNode, logError, toastError]);
 
   // Load activity feed
   const loadActivities = useCallback(async (showToast = false, isRefresh = false) => {
@@ -64,11 +121,16 @@ export const Dashboard = () => {
     }
   }, [simulateApiError, logError, toastError, success]);
 
+  // Sync data loaders
   useEffect(() => {
-    logInfo('Dashboard component loaded');
+    logInfo(`Dashboard metrics loaded for node: ${selectedNode}`);
     loadMetrics();
+  }, [selectedNode, loadMetrics, logInfo]);
+
+  useEffect(() => {
+    logInfo('Dashboard activity loaded');
     loadActivities();
-  }, [logInfo, loadMetrics, loadActivities]);
+  }, [loadActivities, logInfo]);
 
   const handleRefreshAll = () => {
     logClick('Refresh Metrics & Activity');
@@ -180,7 +242,7 @@ export const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Dashboard Top Intro Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 dark:border-slate-900 pb-4 select-none">
         <div>
@@ -190,74 +252,122 @@ export const Dashboard = () => {
           </p>
         </div>
         
-        <Button
-          onClick={handleRefreshAll}
-          icon={RefreshCw}
-          variant="secondary"
-          size="sm"
-        >
-          Refresh Feed
-        </Button>
+        {/* Node Switcher & Actions Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Server Status Pulsing Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-450 select-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Online
+          </div>
+
+          <select
+            value={selectedNode}
+            onChange={(e) => {
+              logClick(`Node Switch: ${e.target.value}`);
+              setSelectedNode(e.target.value);
+              success(`Switched telemetry to node: ${e.target.value}`);
+            }}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none transition-colors cursor-pointer text-slate-700 dark:text-slate-350"
+            aria-label="Select target server node"
+          >
+            <option value="US-EAST-Primary">US-EAST-Primary (Main)</option>
+            <option value="EU-WEST-Edge">EU-WEST-Edge (Edge)</option>
+            <option value="AP-SOUTH-Replica">AP-SOUTH-Replica (Backup)</option>
+          </select>
+
+          <Button
+            onClick={handleRefreshAll}
+            icon={RefreshCw}
+            variant="secondary"
+            size="sm"
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Metrics Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Stat 1 */}
-        <Card className="hover:shadow-md">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">CPU Utilization</span>
-              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block">
+        {/* Stat 1: CPU */}
+        <Card className="hover:shadow-md hover:border-indigo-400/50 dark:hover:border-indigo-800/50 transition-all duration-200 select-none">
+          <CardContent className="p-5 flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">CPU Utilization</span>
+              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block truncate">
                 {loadingMetrics ? '---' : `${metrics?.cpuUsage}%`}
               </span>
+              <span className="text-[10px] text-indigo-500 font-semibold mt-1 block">
+                Stable Load
+              </span>
             </div>
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-650 dark:text-indigo-400 flex items-center justify-center">
-              <Cpu size={20} />
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <Sparkline data={cpuHistory} color="#4f46e5" />
+              <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <Cpu size={16} />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stat 2 */}
-        <Card className="hover:shadow-md">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Memory Allocation</span>
-              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block">
+        {/* Stat 2: Memory */}
+        <Card className="hover:shadow-md hover:border-emerald-400/50 dark:hover:border-emerald-800/50 transition-all duration-200 select-none">
+          <CardContent className="p-5 flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Memory Allocation</span>
+              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block truncate">
                 {loadingMetrics ? '---' : `${metrics?.memoryUsage}%`}
               </span>
+              <span className="text-[10px] text-emerald-500 font-semibold mt-1 block">
+                Cache Warm
+              </span>
             </div>
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-650 dark:text-indigo-400 flex items-center justify-center">
-              <Activity size={20} />
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <Sparkline data={memHistory} color="#10b981" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-650 dark:text-emerald-450 flex items-center justify-center shrink-0">
+                <Activity size={16} />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stat 3 */}
-        <Card className="hover:shadow-md">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Request Load</span>
-              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block">
+        {/* Stat 3: requestsPerSecond */}
+        <Card className="hover:shadow-md hover:border-blue-400/50 dark:hover:border-blue-800/50 transition-all duration-200 select-none">
+          <CardContent className="p-5 flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Request Load</span>
+              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block truncate">
                 {loadingMetrics ? '---' : `${metrics?.requestsPerSecond} rps`}
               </span>
+              <span className="text-[10px] text-blue-500 font-semibold mt-1 block">
+                Concurrent Connections
+              </span>
             </div>
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-650 dark:text-indigo-400 flex items-center justify-center">
-              <Cpu size={20} />
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <Sparkline data={loadHistory} color="#3b82f6" />
+              <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-650 dark:text-blue-450 flex items-center justify-center shrink-0">
+                <SlidersHorizontal size={16} />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stat 4 */}
-        <Card className="hover:shadow-md">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">System Latency</span>
-              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block">
+        {/* Stat 4: latency */}
+        <Card className="hover:shadow-md hover:border-amber-400/50 dark:hover:border-amber-800/50 transition-all duration-200 select-none">
+          <CardContent className="p-5 flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">System Latency</span>
+              <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block truncate">
                 {loadingMetrics ? '---' : `${metrics?.latencyMs} ms`}
               </span>
+              <span className="text-[10px] text-amber-500 font-semibold mt-1 block">
+                Round-Trip Delay
+              </span>
             </div>
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-650 dark:text-indigo-400 flex items-center justify-center">
-              <Heart size={20} />
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <Sparkline data={latencyHistory} color="#eab308" />
+              <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-650 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Heart size={16} />
+              </div>
             </div>
           </CardContent>
         </Card>
