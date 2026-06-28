@@ -220,12 +220,13 @@ export const Dashboard = () => {
       key: 'status',
       render: (row) => (
         <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold select-none ${
+          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold select-none border ${
             row.status === 'Success'
-              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-450 border border-emerald-250 dark:border-emerald-800/40'
-              : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-450 border border-red-250 dark:border-red-800/40'
+              ? 'bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 shadow-sm shadow-emerald-500/5'
+              : 'bg-red-50/50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border-red-200 dark:border-red-800/40 shadow-sm shadow-red-500/5'
           }`}
         >
+          <span className={`h-1.5 w-1.5 rounded-full ${row.status === 'Success' ? 'bg-emerald-500' : 'bg-red-500'}`} />
           {row.status}
         </span>
       )
