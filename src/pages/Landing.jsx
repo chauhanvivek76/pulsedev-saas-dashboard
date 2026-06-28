@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { TerminalSquare, Shield, Activity, Cpu, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
 import { useLogger } from '../hooks/useLogger';
 import { useAuthContext } from '../context/AuthContext';
+import heroIllustration from '../assets/hero_illustration.png';
 
 export const Landing = () => {
   const { logInfo, logClick } = useLogger('LandingPage');
@@ -81,6 +82,15 @@ export const Landing = () => {
           >
             Learn More
           </a>
+        </div>
+
+        {/* Hero Dashboard Preview Graphic */}
+        <div className="w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-800/60 shadow-2xl shadow-indigo-600/10 mb-20 animate-fade-in select-none">
+          <img 
+            src={heroIllustration} 
+            alt="PulseDev SaaS Live Telemetry Dashboard Preview" 
+            className="w-full h-auto object-cover"
+          />
         </div>
 
         {/* Feature Grid */}
