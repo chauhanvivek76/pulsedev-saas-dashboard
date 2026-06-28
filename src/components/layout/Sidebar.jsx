@@ -38,7 +38,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar Drawer */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-50 transform lg:translate-x-0 lg:static lg:flex lg:flex-col lg:h-screen transition-transform duration-300 ease-in-out shrink-0',
+          'fixed inset-y-0 left-0 w-64 bg-white/90 dark:bg-slate-900/70 backdrop-blur-md border-r border-slate-200/80 dark:border-slate-800/80 z-50 transform lg:translate-x-0 lg:static lg:flex lg:flex-col lg:h-screen transition-transform duration-300 ease-in-out shrink-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

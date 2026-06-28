@@ -25,7 +25,7 @@ export const Navbar = ({ onMenuToggle }) => {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 select-none">
+    <header className="h-16 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-6 shrink-0 select-none">
       <div className="flex items-center gap-3">
         {/* Mobile Sidebar Hamburger Toggle */}
         <button

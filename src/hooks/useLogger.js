@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { logger, LOG_CATEGORIES } from '../middleware/logger';
 
 /**
@@ -5,49 +6,50 @@ import { logger, LOG_CATEGORIES } from '../middleware/logger';
  * 
  * Provides easy helpers for logging interface actions inside components,
  * automatically embedding the component's context.
+ * All helpers are memoized to avoid triggering infinite rendering loops.
  * 
  * @param {string} componentName Name of the component using the hook
  */
 export const useLogger = (componentName = 'Component') => {
-  const logClick = (elementLabel, extraData = {}) => {
+  const logClick = useCallback((elementLabel, extraData = {}) => {
     logger.info(
       LOG_CATEGORIES.BUTTON,
       `User clicked button/link: "${elementLabel}"`,
       { component: componentName, ...extraData }
     );
-  };
+  }, [componentName]);
 
-  const logSubmit = (formLabel, extraData = {}) => {
+  const logSubmit = useCallback((formLabel, extraData = {}) => {
     logger.info(
       LOG_CATEGORIES.FORM,
       `User submitted form: "${formLabel}"`,
       { component: componentName, ...extraData }
     );
-  };
+  }, [componentName]);
 
-  const logCrud = (operation, entityType, entityId, extraData = {}) => {
+  const logCrud = useCallback((operation, entityType, entityId, extraData = {}) => {
     logger.info(
       LOG_CATEGORIES.CRUD,
       `CRUD ${operation.toUpperCase()} executed on ${entityType}`,
       { component: componentName, entityId, ...extraData }
     );
-  };
+  }, [componentName]);
 
-  const logInfo = (message, extraData = {}) => {
+  const logInfo = useCallback((message, extraData = {}) => {
     logger.info(LOG_CATEGORIES.APP, message, { component: componentName, ...extraData });
-  };
+  }, [componentName]);
 
-  const logWarn = (message, extraData = {}) => {
+  const logWarn = useCallback((message, extraData = {}) => {
     logger.warn(LOG_CATEGORIES.APP, message, { component: componentName, ...extraData });
-  };
+  }, [componentName]);
 
-  const logError = (message, errorObj, extraData = {}) => {
+  const logError = useCallback((message, errorObj, extraData = {}) => {
     logger.error(
       LOG_CATEGORIES.ERROR,
       `${message}: ${errorObj?.message || errorObj}`,
       { component: componentName, errorStack: errorObj?.stack, ...extraData }
     );
-  };
+  }, [componentName]);
 
   return {
     logger,
@@ -59,4 +61,5 @@ export const useLogger = (componentName = 'Component') => {
     logError
   };
 };
+
 export default useLogger;

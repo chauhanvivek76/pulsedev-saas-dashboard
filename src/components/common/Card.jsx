@@ -11,7 +11,7 @@ export const Card = ({
   return (
     <div
       className={cn(
-        'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden transition-all duration-200',
+        'bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/85 dark:border-slate-800/80 rounded-xl shadow-md overflow-hidden transition-all duration-200',
         className
       )}
       {...props}
